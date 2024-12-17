@@ -153,22 +153,25 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 			port = matches[1]
 		}
 	} else {
+		fmt.Println("before get extension")
 		ext := getExtension(domain)
+		fmt.Println("after get extension")
 		result, err := c.rawQuery(ext, defaultWhoisServer, defaultWhoisPort)
 		if err != nil {
 			return "", fmt.Errorf("whois: query for whois server failed: %w", err)
 		}
+		fmt.Println("after first raw query", err)
 		server, port = getServer(result)
 		if server == "" {
 			return "", fmt.Errorf("%w: %s", ErrWhoisServerNotFound, domain)
 		}
 	}
-
+	fmt.Println("before second raw query", err)
 	result, err = c.rawQuery(domain, server, port)
 	if err != nil {
 		return
 	}
-
+	fmt.Println("after second raw query", err)
 	if c.disableReferral {
 		return
 	}
@@ -177,11 +180,12 @@ func (c *Client) Whois(domain string, servers ...string) (result string, err err
 	if refServer == "" || refServer == server {
 		return
 	}
-
+	fmt.Println("before third raw query", err)
 	data, err := c.rawQuery(domain, refServer, refPort)
 	if err == nil {
 		result += data
 	}
+	fmt.Println("after third raw query", err)
 
 	return
 }
@@ -207,16 +211,18 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	if server == "porkbun.com/whois" {
 		server = "whois.porkbun.com"
 	}
-
+	fmt.Println("dial tcp calling")
 	conn, err := c.dialer.Dial("tcp", net.JoinHostPort(server, port))
 	if err != nil {
 		return "", fmt.Errorf("whois: connect to whois server failed: %w", err)
 	}
+	fmt.Println("dial tcp call done", err)
 
 	defer conn.Close()
 	elapsed := time.Since(start)
-
+	fmt.Println("write deadline", err)
 	_ = conn.SetWriteDeadline(time.Now().Add(c.timeout - elapsed))
+	fmt.Println("write deadline done", err)
 	_, err = conn.Write([]byte(domain + "\r\n"))
 	if err != nil {
 		// Some servers may refuse a request with a reason, immediately closing the connection after sending.
@@ -224,18 +230,21 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 		//
 		// We return both the response _and_ the error, to allow callers to try to parse the response, while
 		// still letting them know an error occurred. In particular, this helps catch rate limit errors.
+		fmt.Println("before readall", err)
 		buffer, _ := io.ReadAll(conn)
 		if len(buffer) > 0 {
 			return string(buffer), err
 		}
-
+		fmt.Println("after readall", err)
 		return "", fmt.Errorf("whois: send to whois server failed: %w", err)
 	}
 
 	elapsed = time.Since(start)
-
+	fmt.Println("set read deadline", err)
 	_ = conn.SetReadDeadline(time.Now().Add(c.timeout - elapsed))
+	fmt.Println("after set read deadline", err)
 	buffer, err := io.ReadAll(conn)
+	fmt.Println("after read all", err)
 	if err != nil {
 		if len(buffer) > 0 {
 			// Some servers may refuse a request with a reason, immediately closing the connection after sending.
@@ -249,6 +258,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 
 		return "", fmt.Errorf("whois: read from whois server failed: %w", err)
 	}
+	fmt.Println("end buffer", err)
 
 	return string(buffer), nil
 }
