@@ -211,7 +211,7 @@ func (c *Client) rawQuery(domain, server, port string) (string, error) {
 	if server == "porkbun.com/whois" {
 		server = "whois.porkbun.com"
 	}
-	fmt.Println("dial tcp calling")
+	fmt.Println("dial tcp calling", server, port)
 	conn, err := c.dialer.Dial("tcp", net.JoinHostPort(server, port))
 	if err != nil {
 		return "", fmt.Errorf("whois: connect to whois server failed: %w", err)
